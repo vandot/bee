@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,7 +20,9 @@ import (
 )
 
 const (
-	noncePrefix = "transaction_nonce_"
+	noncePrefix             = "transaction_nonce_"
+	activeTransactionPrefix = "transaction_active_"
+	storedTransactionPrefix = "transaction_stored_"
 )
 
 var (
@@ -32,11 +33,22 @@ var (
 
 // TxRequest describes a request for a transaction that can be executed.
 type TxRequest struct {
-	To       *common.Address // recipient of the transaction
-	Data     []byte          // transaction data
-	GasPrice *big.Int        // gas price or nil if suggested gas price should be used
-	GasLimit uint64          // gas limit or 0 if it should be estimated
-	Value    *big.Int        // amount of wei to send
+	To          *common.Address // recipient of the transaction
+	Data        []byte          // transaction data
+	GasPrice    *big.Int        // gas price or nil if suggested gas price should be used
+	GasLimit    uint64          // gas limit or 0 if it should be estimated
+	Value       *big.Int        // amount of wei to send
+	Description string
+}
+
+type StoredTransaction struct {
+	To          *common.Address // recipient of the transaction
+	Data        []byte          // transaction data
+	GasPrice    *big.Int        // gas price or nil if suggested gas price should be used
+	GasLimit    uint64          // gas limit or 0 if it should be estimated
+	Value       *big.Int        // amount of wei to send
+	Nonce       uint64
+	Description string
 }
 
 // Service is the service to send transactions. It takes care of gas price, gas
@@ -48,6 +60,7 @@ type Service interface {
 	Call(ctx context.Context, request *TxRequest) (result []byte, err error)
 	// WaitForReceipt waits until either the transaction with the given hash has been mined or the context is cancelled.
 	WaitForReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error)
+	ActiveTransactions() (storedTransactions []StoredTransaction, err error)
 }
 
 type transactionService struct {
@@ -59,6 +72,9 @@ type transactionService struct {
 	sender  common.Address
 	store   storage.StateStorer
 	chainID *big.Int
+	monitor Monitor
+
+	activeTransactions []common.Hash
 }
 
 // NewService creates a new transaction service.
@@ -68,13 +84,27 @@ func NewService(logger logging.Logger, backend Backend, signer crypto.Signer, st
 		return nil, err
 	}
 
+	var activeTransactions []common.Hash
+	err = store.Get(activeTransactionPrefix, &activeTransactions)
+	if err != nil {
+		if !errors.Is(err, storage.ErrNotFound) {
+			return nil, err
+		}
+		activeTransactions = []common.Hash{}
+	}
+
+	monitor := NewMonitor(backend, logger)
+	monitor.Start()
+
 	return &transactionService{
-		logger:  logger,
-		backend: backend,
-		signer:  signer,
-		sender:  senderAddress,
-		store:   store,
-		chainID: chainID,
+		logger:             logger,
+		backend:            backend,
+		signer:             signer,
+		sender:             senderAddress,
+		store:              store,
+		chainID:            chainID,
+		activeTransactions: activeTransactions,
+		monitor:            monitor,
 	}, nil
 }
 
@@ -108,7 +138,51 @@ func (t *transactionService) Send(ctx context.Context, request *TxRequest) (txHa
 		return common.Hash{}, err
 	}
 
-	return signedTx.Hash(), nil
+	txHash = signedTx.Hash()
+
+	err = t.store.Put(fmt.Sprintf("%s%x", storedTransactionPrefix, txHash), StoredTransaction{
+		To:          signedTx.To(),
+		Data:        signedTx.Data(),
+		GasPrice:    signedTx.GasPrice(),
+		GasLimit:    signedTx.Gas(),
+		Value:       signedTx.Value(),
+		Nonce:       signedTx.Nonce(),
+		Description: request.Description,
+	})
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	t.activeTransactions = append(t.activeTransactions, txHash)
+	err = t.store.Put(activeTransactionPrefix, t.activeTransactions)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	t.monitor.WatchTransaction(TransactionWatch{
+		TxHash:   txHash,
+		Callback: t.handleResult,
+	})
+
+	return txHash, nil
+}
+
+func (t *transactionService) handleResult(r *types.Receipt, e error) error {
+	fmt.Printf("\n!!! CONFIRMED %x !!!\n", r.TxHash)
+	return nil
+}
+
+func (t *transactionService) ActiveTransactions() (storedTransactions []StoredTransaction, err error) {
+	for _, txHash := range t.activeTransactions {
+		var storedTransaction StoredTransaction
+		err = t.store.Get(fmt.Sprintf("%s%x", storedTransactionPrefix, txHash), &storedTransaction)
+		if err != nil {
+			return nil, err
+		}
+		storedTransactions = append(storedTransactions, storedTransaction)
+	}
+
+	return storedTransactions, nil
 }
 
 func (t *transactionService) Call(ctx context.Context, request *TxRequest) ([]byte, error) {
@@ -132,23 +206,28 @@ func (t *transactionService) Call(ctx context.Context, request *TxRequest) ([]by
 // WaitForReceipt waits until either the transaction with the given hash has
 // been mined or the context is cancelled.
 func (t *transactionService) WaitForReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
-	for {
-		receipt, err := t.backend.TransactionReceipt(ctx, txHash)
-		if receipt != nil {
-			return receipt, nil
-		}
-		if err != nil {
-			// some node implementations return an error if the transaction is not yet mined
-			t.logger.Tracef("waiting for transaction %x to be mined: %v", txHash, err)
-		} else {
-			t.logger.Tracef("waiting for transaction %x to be mined", txHash)
-		}
+	receiptC := make(chan *types.Receipt, 1)
+	errC := make(chan error)
 
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(1 * time.Second):
-		}
+	t.monitor.WatchTransaction(TransactionWatch{
+		TxHash: txHash,
+		Callback: func(r *types.Receipt, e error) error {
+			if e != nil {
+				errC <- e
+			} else {
+				receiptC <- r
+			}
+			return nil
+		},
+	})
+
+	select {
+	case receipt = <-receiptC:
+		return receipt, nil
+	case err = <-errC:
+		return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 

@@ -334,11 +334,12 @@ func (s *service) Withdraw(ctx context.Context, amount *big.Int) (hash common.Ha
 	}
 
 	request := &transaction.TxRequest{
-		To:       &s.address,
-		Data:     callData,
-		GasPrice: nil,
-		GasLimit: 0,
-		Value:    big.NewInt(0),
+		To:          &s.address,
+		Data:        callData,
+		GasPrice:    nil,
+		GasLimit:    0,
+		Value:       big.NewInt(0),
+		Description: "chequebook withdraw",
 	}
 
 	txHash, err := s.transactionService.Send(ctx, request)

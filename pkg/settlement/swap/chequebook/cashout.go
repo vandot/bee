@@ -102,11 +102,12 @@ func (s *cashoutService) CashCheque(ctx context.Context, chequebook, recipient c
 	}
 
 	request := &transaction.TxRequest{
-		To:       &chequebook,
-		Data:     callData,
-		GasPrice: nil,
-		GasLimit: 0,
-		Value:    big.NewInt(0),
+		To:          &chequebook,
+		Data:        callData,
+		GasPrice:    nil,
+		GasLimit:    0,
+		Value:       big.NewInt(0),
+		Description: "chequebook cashout",
 	}
 
 	txHash, err := s.transactionService.Send(ctx, request)

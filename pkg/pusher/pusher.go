@@ -9,12 +9,14 @@
 package pusher
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/ethersphere/bee/pkg/crypto"
 	"github.com/ethersphere/bee/pkg/logging"
 	"github.com/ethersphere/bee/pkg/pushsync"
 	"github.com/ethersphere/bee/pkg/storage"
@@ -23,11 +25,13 @@ import (
 	"github.com/ethersphere/bee/pkg/topology"
 	"github.com/ethersphere/bee/pkg/tracing"
 	"github.com/opentracing/opentracing-go"
+
 	"github.com/sirupsen/logrus"
 )
 
 type Service struct {
 	storer            storage.Storer
+	networkID         uint64
 	pushSyncer        pushsync.PushSyncer
 	logger            logging.Logger
 	tag               *tags.Tags
@@ -42,9 +46,12 @@ var (
 	concurrentJobs = 20              // how many chunks to push simultaneously
 )
 
-func New(storer storage.Storer, peerSuggester topology.ClosestPeerer, pushSyncer pushsync.PushSyncer, tagger *tags.Tags, logger logging.Logger, tracer *tracing.Tracer) *Service {
+var ErrInvalidAddress = errors.New("invalid address")
+
+func New(storer storage.Storer, networkID uint64, peerSuggester topology.ClosestPeerer, pushSyncer pushsync.PushSyncer, tagger *tags.Tags, logger logging.Logger, tracer *tracing.Tracer) *Service {
 	service := &Service{
 		storer:            storer,
+		networkID:         networkID,
 		pushSyncer:        pushSyncer,
 		tag:               tagger,
 		logger:            logger,
@@ -151,7 +158,7 @@ LOOP:
 				}()
 				// Later when we process receipt, get the receipt and process it
 				// for now ignoring the receipt and checking only for error
-				_, err = s.pushSyncer.PushChunkToClosest(ctx, ch)
+				receipt, err := s.pushSyncer.PushChunkToClosest(ctx, ch)
 				if err != nil {
 					if errors.Is(err, topology.ErrWantSelf) {
 						// we are the closest ones - this is fine
@@ -163,6 +170,22 @@ LOOP:
 						return
 					}
 				}
+
+				pk, err := crypto.Recover(receipt.Signature, receipt.StorerAddress.Bytes())
+				if err != nil {
+					err = fmt.Errorf("pusher receipt recover: %w", err)
+					return
+				}
+				recoveredOverlay, err := crypto.NewOverlayAddress(*pk, s.networkID)
+				if err != nil {
+					err = fmt.Errorf("pusher receipt overlay address: %w", err)
+					return
+				}
+				if !bytes.Equal(recoveredOverlay.Bytes(), receipt.StorerAddress.Bytes()) {
+					err = fmt.Errorf("pusher receipt verification: %w", err)
+					return
+				}
+
 				if err = s.storer.Set(ctx, storage.ModeSetSync, ch.Address()); err != nil {
 					err = fmt.Errorf("pusher: set sync: %w", err)
 					return

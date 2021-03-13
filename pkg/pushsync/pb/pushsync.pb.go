@@ -75,7 +75,9 @@ func (m *Delivery) GetData() []byte {
 }
 
 type Receipt struct {
-	Address []byte `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	Address       []byte `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	StorerAddress []byte `protobuf:"bytes,2,opt,name=StorerAddress,proto3" json:"StorerAddress,omitempty"`
+	Signature     []byte `protobuf:"bytes,3,opt,name=Signature,proto3" json:"Signature,omitempty"`
 }
 
 func (m *Receipt) Reset()         { *m = Receipt{} }
@@ -118,6 +120,20 @@ func (m *Receipt) GetAddress() []byte {
 	return nil
 }
 
+func (m *Receipt) GetStorerAddress() []byte {
+	if m != nil {
+		return m.StorerAddress
+	}
+	return nil
+}
+
+func (m *Receipt) GetSignature() []byte {
+	if m != nil {
+		return m.Signature
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Delivery)(nil), "pushsync.Delivery")
 	proto.RegisterType((*Receipt)(nil), "pushsync.Receipt")
@@ -126,16 +142,18 @@ func init() {
 func init() { proto.RegisterFile("pushsync.proto", fileDescriptor_723cf31bfc02bfd6) }
 
 var fileDescriptor_723cf31bfc02bfd6 = []byte{
-	// 139 bytes of a gzipped FileDescriptorProto
+	// 173 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2b, 0x28, 0x2d, 0xce,
 	0x28, 0xae, 0xcc, 0x4b, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x80, 0xf1, 0x95, 0x2c,
 	0xb8, 0x38, 0x5c, 0x52, 0x73, 0x32, 0xcb, 0x52, 0x8b, 0x2a, 0x85, 0x24, 0xb8, 0xd8, 0x1d, 0x53,
 	0x52, 0x8a, 0x52, 0x8b, 0x8b, 0x25, 0x18, 0x15, 0x18, 0x35, 0x78, 0x82, 0x60, 0x5c, 0x21, 0x21,
-	0x2e, 0x16, 0x97, 0xc4, 0x92, 0x44, 0x09, 0x26, 0xb0, 0x30, 0x98, 0xad, 0xa4, 0xcc, 0xc5, 0x1e,
-	0x94, 0x9a, 0x9c, 0x9a, 0x59, 0x50, 0x82, 0x5b, 0xa3, 0x93, 0xcc, 0x89, 0x47, 0x72, 0x8c, 0x17,
-	0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7, 0x38, 0xe1, 0xb1, 0x1c, 0xc3, 0x85, 0xc7, 0x72, 0x0c,
-	0x37, 0x1e, 0xcb, 0x31, 0x44, 0x31, 0x15, 0x24, 0x25, 0xb1, 0x81, 0x5d, 0x63, 0x0c, 0x08, 0x00,
-	0x00, 0xff, 0xff, 0x1b, 0x63, 0x50, 0x4a, 0x9f, 0x00, 0x00, 0x00,
+	0x2e, 0x16, 0x97, 0xc4, 0x92, 0x44, 0x09, 0x26, 0xb0, 0x30, 0x98, 0xad, 0x94, 0xce, 0xc5, 0x1e,
+	0x94, 0x9a, 0x9c, 0x9a, 0x59, 0x50, 0x82, 0x47, 0xa3, 0x0a, 0x17, 0x6f, 0x70, 0x49, 0x7e, 0x51,
+	0x6a, 0x11, 0x4c, 0x1e, 0x62, 0x02, 0xaa, 0xa0, 0x90, 0x0c, 0x17, 0x67, 0x70, 0x66, 0x7a, 0x5e,
+	0x62, 0x49, 0x69, 0x51, 0xaa, 0x04, 0x33, 0x58, 0x05, 0x42, 0xc0, 0x49, 0xe6, 0xc4, 0x23, 0x39,
+	0xc6, 0x0b, 0x8f, 0xe4, 0x18, 0x1f, 0x3c, 0x92, 0x63, 0x9c, 0xf0, 0x58, 0x8e, 0xe1, 0xc2, 0x63,
+	0x39, 0x86, 0x1b, 0x8f, 0xe5, 0x18, 0xa2, 0x98, 0x0a, 0x92, 0x92, 0xd8, 0xc0, 0x3e, 0x32, 0x06,
+	0x04, 0x00, 0x00, 0xff, 0xff, 0x4e, 0xc0, 0xf2, 0x4f, 0xe3, 0x00, 0x00, 0x00,
 }
 
 func (m *Delivery) Marshal() (dAtA []byte, err error) {
@@ -195,6 +213,20 @@ func (m *Receipt) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.Signature) > 0 {
+		i -= len(m.Signature)
+		copy(dAtA[i:], m.Signature)
+		i = encodeVarintPushsync(dAtA, i, uint64(len(m.Signature)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.StorerAddress) > 0 {
+		i -= len(m.StorerAddress)
+		copy(dAtA[i:], m.StorerAddress)
+		i = encodeVarintPushsync(dAtA, i, uint64(len(m.StorerAddress)))
+		i--
+		dAtA[i] = 0x12
+	}
 	if len(m.Address) > 0 {
 		i -= len(m.Address)
 		copy(dAtA[i:], m.Address)
@@ -240,6 +272,14 @@ func (m *Receipt) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovPushsync(uint64(l))
+	}
+	l = len(m.StorerAddress)
+	if l > 0 {
+		n += 1 + l + sovPushsync(uint64(l))
+	}
+	l = len(m.Signature)
 	if l > 0 {
 		n += 1 + l + sovPushsync(uint64(l))
 	}
@@ -434,6 +474,74 @@ func (m *Receipt) Unmarshal(dAtA []byte) error {
 			m.Address = append(m.Address[:0], dAtA[iNdEx:postIndex]...)
 			if m.Address == nil {
 				m.Address = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StorerAddress", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPushsync
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthPushsync
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthPushsync
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StorerAddress = append(m.StorerAddress[:0], dAtA[iNdEx:postIndex]...)
+			if m.StorerAddress == nil {
+				m.StorerAddress = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signature", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPushsync
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthPushsync
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthPushsync
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signature = append(m.Signature[:0], dAtA[iNdEx:postIndex]...)
+			if m.Signature == nil {
+				m.Signature = []byte{}
 			}
 			iNdEx = postIndex
 		default:

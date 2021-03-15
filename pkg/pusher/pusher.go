@@ -9,7 +9,6 @@
 package pusher
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -31,7 +30,6 @@ import (
 
 type Service struct {
 	storer            storage.Storer
-	networkID         uint64
 	pushSyncer        pushsync.PushSyncer
 	logger            logging.Logger
 	tag               *tags.Tags
@@ -48,10 +46,9 @@ var (
 
 var ErrInvalidAddress = errors.New("invalid address")
 
-func New(storer storage.Storer, networkID uint64, peerSuggester topology.ClosestPeerer, pushSyncer pushsync.PushSyncer, tagger *tags.Tags, logger logging.Logger, tracer *tracing.Tracer) *Service {
+func New(storer storage.Storer, peerSuggester topology.ClosestPeerer, pushSyncer pushsync.PushSyncer, tagger *tags.Tags, logger logging.Logger, tracer *tracing.Tracer) *Service {
 	service := &Service{
 		storer:            storer,
-		networkID:         networkID,
 		pushSyncer:        pushSyncer,
 		tag:               tagger,
 		logger:            logger,
@@ -171,18 +168,9 @@ LOOP:
 					}
 				}
 
-				pk, err := crypto.Recover(receipt.Signature, receipt.StorerAddress.Bytes())
+				_, err = crypto.Recover(receipt.Signature, receipt.Address.Bytes())
 				if err != nil {
 					err = fmt.Errorf("pusher receipt recover: %w", err)
-					return
-				}
-				recoveredOverlay, err := crypto.NewOverlayAddress(*pk, s.networkID)
-				if err != nil {
-					err = fmt.Errorf("pusher receipt overlay address: %w", err)
-					return
-				}
-				if !bytes.Equal(recoveredOverlay.Bytes(), receipt.StorerAddress.Bytes()) {
-					err = fmt.Errorf("pusher receipt verification: %w", err)
 					return
 				}
 

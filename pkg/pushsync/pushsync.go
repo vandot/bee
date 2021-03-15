@@ -43,13 +43,11 @@ type PushSyncer interface {
 }
 
 type Receipt struct {
-	Address       swarm.Address
-	StorerAddress swarm.Address
-	Signature     []byte
+	Address   swarm.Address
+	Signature []byte
 }
 
 type PushSync struct {
-	address       swarm.Address
 	streamer      p2p.StreamerDisconnecter
 	storer        storage.Putter
 	peerSuggester topology.ClosestPeerer
@@ -65,9 +63,8 @@ type PushSync struct {
 
 var timeToLive = 5 * time.Second // request time to live
 
-func New(address swarm.Address, streamer p2p.StreamerDisconnecter, storer storage.Putter, closestPeerer topology.ClosestPeerer, tagger *tags.Tags, unwrap func(swarm.Chunk), logger logging.Logger, accounting accounting.Interface, pricer accounting.Pricer, signer crypto.Signer, tracer *tracing.Tracer) *PushSync {
+func New(streamer p2p.StreamerDisconnecter, storer storage.Putter, closestPeerer topology.ClosestPeerer, tagger *tags.Tags, unwrap func(swarm.Chunk), logger logging.Logger, accounting accounting.Interface, pricer accounting.Pricer, signer crypto.Signer, tracer *tracing.Tracer) *PushSync {
 	ps := &PushSync{
-		address:       address,
 		streamer:      streamer,
 		storer:        storer,
 		peerSuggester: closestPeerer,
@@ -137,11 +134,11 @@ func (ps *PushSync) handler(ctx context.Context, p p2p.Peer, stream p2p.Stream) 
 				return fmt.Errorf("chunk store: %w", err)
 			}
 
-			signature, err := ps.signer.Sign(ps.address.Bytes())
+			signature, err := ps.signer.Sign(ch.Address)
 			if err != nil {
 				return fmt.Errorf("receipt signature: %w", err)
 			}
-			receipt := pb.Receipt{Address: chunk.Address().Bytes(), StorerAddress: ps.address.Bytes(), Signature: signature}
+			receipt := pb.Receipt{Address: chunk.Address().Bytes(), Signature: signature}
 			if err := w.WriteMsgWithContext(ctx, &receipt); err != nil {
 				return fmt.Errorf("send receipt to peer %s: %w", p.Address.String(), err)
 			}
@@ -168,9 +165,8 @@ func (ps *PushSync) PushChunkToClosest(ctx context.Context, ch swarm.Chunk) (*Re
 		return nil, err
 	}
 	return &Receipt{
-		Address:       swarm.NewAddress(r.Address),
-		StorerAddress: swarm.NewAddress(r.StorerAddress),
-		Signature:     r.Signature}, nil
+		Address:   swarm.NewAddress(r.Address),
+		Signature: r.Signature}, nil
 }
 
 func (ps *PushSync) pushToClosest(ctx context.Context, ch swarm.Chunk) (rr *pb.Receipt, reterr error) {

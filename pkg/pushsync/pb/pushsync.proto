@@ -15,6 +15,5 @@ message Delivery {
 
 message Receipt {
   bytes Address = 1;
-  bytes StorerAddress = 2;
-  bytes Signature = 3;
+  bytes Signature = 2;
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethersphere/bee/pkg/accounting"
 	accountingmock "github.com/ethersphere/bee/pkg/accounting/mock"
+	cryptomock "github.com/ethersphere/bee/pkg/crypto/mock"
 	"github.com/ethersphere/bee/pkg/localstore"
 	"github.com/ethersphere/bee/pkg/logging"
 	"github.com/ethersphere/bee/pkg/p2p"
@@ -405,7 +406,9 @@ func createPushSyncNode(t *testing.T, addr swarm.Address, recorder *streamtest.R
 		unwrap = func(swarm.Chunk) {}
 	}
 
-	return pushsync.New(addr, recorderDisconnecter, storer, mockTopology, mtag, unwrap, logger, mockAccounting, mockPricer, nil, nil), storer, mtag, mockAccounting
+	mockSigner := cryptomock.New()
+
+	return pushsync.New(recorderDisconnecter, storer, mockTopology, mtag, unwrap, logger, mockAccounting, mockPricer, mockSigner, nil), storer, mtag, mockAccounting
 }
 
 func waitOnRecordAndTest(t *testing.T, peer swarm.Address, recorder *streamtest.Recorder, add swarm.Address, data []byte) {

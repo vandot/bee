@@ -18,6 +18,7 @@ type signerMock struct {
 	signTx          func(transaction *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 	signTypedData   func(*eip712.TypedData) ([]byte, error)
 	ethereumAddress func() (common.Address, error)
+	signature       []byte
 }
 
 func (m *signerMock) EthereumAddress() (common.Address, error) {
@@ -27,7 +28,10 @@ func (m *signerMock) EthereumAddress() (common.Address, error) {
 	return common.Address{}, nil
 }
 
-func (*signerMock) Sign(data []byte) ([]byte, error) {
+func (m *signerMock) Sign(data []byte) ([]byte, error) {
+	if m.signature != nil {
+		return m.signature, nil
+	}
 	return nil, nil
 }
 
@@ -75,5 +79,11 @@ func WithSignTypedDataFunc(f func(*eip712.TypedData) ([]byte, error)) Option {
 func WithEthereumAddressFunc(f func() (common.Address, error)) Option {
 	return optionFunc(func(s *signerMock) {
 		s.ethereumAddress = f
+	})
+}
+
+func WithSignature(signature []byte) Option {
+	return optionFunc(func(s *signerMock) {
+		s.signature = signature
 	})
 }

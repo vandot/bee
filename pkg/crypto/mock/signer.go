@@ -18,7 +18,7 @@ type signerMock struct {
 	signTx          func(transaction *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 	signTypedData   func(*eip712.TypedData) ([]byte, error)
 	ethereumAddress func() (common.Address, error)
-	signature       []byte
+	signFunc        func([]byte) ([]byte, error)
 }
 
 func (m *signerMock) EthereumAddress() (common.Address, error) {
@@ -29,10 +29,7 @@ func (m *signerMock) EthereumAddress() (common.Address, error) {
 }
 
 func (m *signerMock) Sign(data []byte) ([]byte, error) {
-	if m.signature != nil {
-		return m.signature, nil
-	}
-	return nil, nil
+	return m.signFunc(data)
 }
 
 func (m *signerMock) SignTx(transaction *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
@@ -64,6 +61,12 @@ type optionFunc func(*signerMock)
 
 func (f optionFunc) apply(r *signerMock) { f(r) }
 
+func WithSignFunc(f func(data []byte) ([]byte, error)) Option {
+	return optionFunc(func(s *signerMock) {
+		s.signFunc = f
+	})
+}
+
 func WithSignTxFunc(f func(transaction *types.Transaction, chainID *big.Int) (*types.Transaction, error)) Option {
 	return optionFunc(func(s *signerMock) {
 		s.signTx = f
@@ -79,11 +82,5 @@ func WithSignTypedDataFunc(f func(*eip712.TypedData) ([]byte, error)) Option {
 func WithEthereumAddressFunc(f func() (common.Address, error)) Option {
 	return optionFunc(func(s *signerMock) {
 		s.ethereumAddress = f
-	})
-}
-
-func WithSignature(signature []byte) Option {
-	return optionFunc(func(s *signerMock) {
-		s.signature = signature
 	})
 }

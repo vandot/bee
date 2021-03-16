@@ -170,7 +170,7 @@ LOOP:
 
 				_, err = crypto.Recover(receipt.Signature, receipt.Address.Bytes())
 				if err != nil {
-					err = fmt.Errorf("pusher receipt recover: %w", err)
+					err = fmt.Errorf("pusher: receipt recover: %w", err)
 					return
 				}
 

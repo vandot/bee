@@ -36,12 +36,14 @@ const (
 )
 
 // TestSendChunkAndGetReceipt inserts a chunk as uploaded chunk in db. This triggers sending a chunk to the closest node
-// and expects a receipt. The message are intercepted in the outgoing stream to check for correctness.cry
+// and expects a receipt. The message are intercepted in the outgoing stream to check for correctness.
 func TestSendChunkAndReceiveReceipt(t *testing.T) {
 	// chunk data to upload
 	chunk := testingc.FixtureChunk("7000")
 
-	signer := cryptomock.New()
+	signer := cryptomock.New(cryptomock.WithSignFunc(func([]byte) ([]byte, error) {
+		return nil, nil
+	}))
 
 	// create a pivot node and a mocked closest node
 	pivotNode := swarm.MustParseHexAddress("0000000000000000000000000000000000000000000000000000000000000000")   // base is 0000
@@ -97,7 +99,11 @@ func TestSendChunkAndReceiveReceipt(t *testing.T) {
 func TestPushChunkToClosest(t *testing.T) {
 	// chunk data to upload
 	chunk := testingc.FixtureChunk("7000")
-	signer := cryptomock.New()
+
+	signer := cryptomock.New(cryptomock.WithSignFunc(func([]byte) ([]byte, error) {
+		return nil, nil
+	}))
+
 	// create a pivot node and a mocked closest node
 	pivotNode := swarm.MustParseHexAddress("0000")   // base is 0000
 	closestPeer := swarm.MustParseHexAddress("6000") // binary 0110 -> po 1
@@ -183,7 +189,9 @@ func TestPushChunkToNextClosest(t *testing.T) {
 	// chunk data to upload
 	chunk := testingc.FixtureChunk("7000")
 
-	signer := cryptomock.New()
+	signer := cryptomock.New(cryptomock.WithSignFunc(func([]byte) ([]byte, error) {
+		return nil, nil
+	}))
 
 	// create a pivot node and a mocked closest node
 	pivotNode := swarm.MustParseHexAddress("0000") // base is 0000
@@ -312,7 +320,9 @@ func TestHandler(t *testing.T) {
 	// chunk data to upload
 	chunk := testingc.FixtureChunk("7000")
 
-	signer := cryptomock.New()
+	signer := cryptomock.New(cryptomock.WithSignFunc(func([]byte) ([]byte, error) {
+		return nil, nil
+	}))
 
 	// create a pivot node and a mocked closest node
 	pivotPeer := swarm.MustParseHexAddress("0000000000000000000000000000000000000000000000000000000000000000")
@@ -400,7 +410,9 @@ func TestSignsReceipt(t *testing.T) {
 	// chunk data to upload
 	chunk := testingc.FixtureChunk("7000")
 
-	signer := cryptomock.New(cryptomock.WithSignature([]byte{1}))
+	signer := cryptomock.New(cryptomock.WithSignFunc(func([]byte) ([]byte, error) {
+		return []byte{1}, nil
+	}))
 
 	// create a pivot node and a mocked closest node
 	pivotPeer := swarm.MustParseHexAddress("0000000000000000000000000000000000000000000000000000000000000000")
@@ -424,8 +436,6 @@ func TestSignsReceipt(t *testing.T) {
 	if !bytes.Equal(chunk.Address().Bytes(), receipt.Address.Bytes()) {
 		t.Fatal("chunk address do not match")
 	}
-
-	fmt.Println(receipt.Signature)
 
 	if !bytes.Equal([]byte{1}, receipt.Signature) {
 		t.Fatal("receipt signature is not present")

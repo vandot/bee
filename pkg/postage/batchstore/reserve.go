@@ -42,22 +42,27 @@ var ErrBatchNotFound = errors.New("postage batch not found or expired")
 // DefaultDepth is the initial depth for the reserve
 const DefaultDepth = 5
 
-// Capacity = number of chunks in reserve. `2^23` was chosen to remain
-// relatively near the current 5M chunks ~25GB
+// Capacity is the number of chunks in reserve. `2^23` (8388608) was chosen to remain
+// relatively near the current 5M chunks ~25GB.
+// Utilization is estimated at 50%-60%, which should result in about 4~5mil chunks in reserve.
 var Capacity = exp2(23)
 
 var big1 = big.NewInt(1)
 
 // reserveState records the state and is persisted in the state store
 type reserveState struct {
-	Depth    uint8    `json:"depth"`    // Radius of responsibility
-	Capacity int64    `json:"capacity"` // size of the reserve = number of chunks
-	Outer    *big.Int `json:"outer"`    // lower value limit for outer layer = the further half of chunks
-	Inner    *big.Int `json:"inner"`    // lower value limit for inner layer = the closer half of chunks
+	// Radius is the radius of responsibility,
+	// it defines the proximity order of chunks which we
+	// would like to guarantee that all chunks are stored
+	Radius uint8 `json:"radius"`
+	// Available capacity of the reserve which can still be used.
+	Available int64    `json:"available"`
+	Outer     *big.Int `json:"outer"` // lower value limit for outer layer = the further half of chunks
+	Inner     *big.Int `json:"inner"` // lower value limit for inner layer = the closer half of chunks
 }
 
 // unreserve is called when the batchstore decides not to reserve a batch on a PO
-// i.e.  chunk of  the batch in bins [0 upto PO] (closed  interval) are unreserved
+// i.e. chunk of the batch in bins [0 upto PO] (closed  interval) are unreserved
 func (s *store) unreserve(b *postage.Batch, radius uint8) error {
 	return s.unreserveFunc(b.ID, radius)
 }
@@ -130,12 +135,31 @@ const (
 
 // change calculates info relevant to the value change from old to new value and old and new depth
 // returns the change in capacity and the radius of reserve
-func (rs *reserveState) change(oldv, newv *big.Int, oldDepth, newDepth uint8) (capacityChange int64, reserveRadius uint8) {
-	was := rs.tier(oldv)
-	is := rs.setLimits(newv, rs.tier(newv))
-	capacityChange = int64(was)*exp2(oldDepth-rs.Depth-1) - int64(is)*exp2(newDepth-rs.Depth-1)
-	reserveRadius = rs.radius(is)
-	return
+func (rs *reserveState) change(oldv, newv *big.Int, oldDepth, newDepth uint8) (int64, uint8) {
+	oldTier := rs.tier(oldv)
+	newTier := rs.setLimits(newv, rs.tier(newv))
+
+	oldSize := rs.size(oldDepth, oldTier)
+	newSize := rs.size(newDepth, newTier)
+
+	availbleCapacityChange := oldSize - newSize
+	reserveRadius := rs.radius(newTier)
+
+	return availableCapacityChange, reserveRadius
+}
+
+// size returns the number of chunks the local node is responsible
+// to store in its reserve.
+func (rs *reserveState) size(depth uint8, t tier) int64 {
+	size := exp2(oldDepth - rs.Depth - 1)
+	switch t {
+	case none:
+		return 0
+	case half:
+		return size
+	case full:
+		return 2 * size
+	}
 }
 
 // tier returns which tier a value falls into

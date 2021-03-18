@@ -29,6 +29,7 @@ import (
 )
 
 type Service struct {
+	networkID         uint64
 	storer            storage.Storer
 	pushSyncer        pushsync.PushSyncer
 	logger            logging.Logger
@@ -46,8 +47,9 @@ var (
 
 var ErrInvalidAddress = errors.New("invalid address")
 
-func New(storer storage.Storer, peerSuggester topology.ClosestPeerer, pushSyncer pushsync.PushSyncer, tagger *tags.Tags, logger logging.Logger, tracer *tracing.Tracer) *Service {
+func New(networkID uint64, storer storage.Storer, peerSuggester topology.ClosestPeerer, pushSyncer pushsync.PushSyncer, tagger *tags.Tags, logger logging.Logger, tracer *tracing.Tracer) *Service {
 	service := &Service{
+		networkID:         networkID,
 		storer:            storer,
 		pushSyncer:        pushSyncer,
 		tag:               tagger,
@@ -133,17 +135,18 @@ LOOP:
 
 			go func(ctx context.Context, ch swarm.Chunk) {
 				var (
-					err       error
-					startTime = time.Now()
-					t         *tags.Tag
-					setSent   bool
+					err        error
+					startTime  = time.Now()
+					t          *tags.Tag
+					setSent    bool
+					storerPeer swarm.Address
 				)
 				defer func() {
 					if err == nil {
 						s.metrics.TotalSynced.Inc()
 						s.metrics.SyncTime.Observe(time.Since(startTime).Seconds())
 						// only print this if there was no error while sending the chunk
-						logger.Tracef("pusher pushed chunk %s", ch.Address().String())
+						logger.Tracef("pusher: pushed chunk %s to node %s", ch.Address().String(), storerPeer.String())
 					} else {
 						s.metrics.TotalErrors.Inc()
 						s.metrics.ErrorTime.Observe(time.Since(startTime).Seconds())
@@ -168,9 +171,15 @@ LOOP:
 					}
 				}
 
-				_, err = crypto.Recover(receipt.Signature, receipt.Address.Bytes())
+				publicKey, err := crypto.Recover(receipt.Signature, receipt.Address.Bytes())
 				if err != nil {
 					err = fmt.Errorf("pusher: receipt recover: %w", err)
+					return
+				}
+
+				storerPeer, err = crypto.NewOverlayAddress(*publicKey, s.networkID)
+				if err != nil {
+					err = fmt.Errorf("pusher: receipt storer address: %w", err)
 					return
 				}
 

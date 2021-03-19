@@ -5,6 +5,7 @@
 package batchstore_test
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -205,7 +206,7 @@ func setupBatchStore(t *testing.T) (postage.Storer, map[string]uint8) {
 	// set mock unreserve call
 	unreserved := make(map[string]uint8)
 	unreserveFunc := func(batchID []byte, radius uint8) error {
-		unreserved[string(batchID)] = radius
+		unreserved[hex.EncodeToString(batchID)] = radius
 		return nil
 	}
 	bStore, _ := batchstore.New(stateStore, unreserveFunc)
@@ -310,23 +311,46 @@ func TestBatchStore_InnerValue(t *testing.T) {
 	defer func(i int64) {
 		batchstore.Capacity = i
 	}(batchstore.Capacity)
-	batchstore.Capacity = batchstore.Exp2(16)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
 
 	bStore, unreserved := setupBatchStore(t)
-	//batches := make(map[string]*postage.Batch)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
 
 	// create the initial state
 	var batches []*postage.Batch
 	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
 		b := postagetest.MustNewBatch()
-		b.Depth = 2
-		b.Value = big.NewInt(i)
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
 		b.Start = 667
 		batches = append(batches, b)
-		_ := bStore.Put(b, b.Value, b.Depth)
+		_ = bStore.Put(b, val, depth)
 	}
 
-	t.Fatal(unreserved)
+	b := postagetest.MustNewBatch()
+	t.Logf("lastbatch: %v", hex.EncodeToString(b.ID))
+	val := big.NewInt(int64(2))
+	b.Value = big.NewInt(0)
+	b.Depth = uint8(0)
+	b.Start = 667
+	batches = append(batches, b)
+	_ = bStore.Put(b, val, depth)
+
+	b = postagetest.MustNewBatch()
+	t.Logf("lastbatch2: %v", hex.EncodeToString(b.ID))
+	val = big.NewInt(int64(7))
+	b.Value = big.NewInt(0)
+	b.Depth = uint8(0)
+	b.Start = 667
+	batches = append(batches, b)
+	_ = bStore.Put(b, val, depth)
+
+	t.Fatalf("%v", unreserved)
 	//batchstore.IterateAll(bStore, func(b *postage.Batch) (bool, error) {
 
 	//})

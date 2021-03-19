@@ -59,18 +59,18 @@ func TestBatchStoreUnreserveEvents(t *testing.T) {
 
 	t.Run("new batches only", func(t *testing.T) {
 		// iterate starting from batchstore.DefaultDepth to maxPO
-		_, depth := batchstore.GetReserve(bStore)
-		for step := 0; depth < swarm.MaxPO; step++ {
+		_, radius := batchstore.GetReserve(bStore)
+		for step := 0; radius < swarm.MaxPO; step++ {
 			cs, err := nextChainState(bStore)
 			if err != nil {
 				t.Fatal(err)
 			}
 			var b *postage.Batch
-			if b, err = createBatch(bStore, cs, depth); err != nil {
+			if b, err = createBatch(bStore, cs, radius); err != nil {
 				t.Fatal(err)
 			}
 			batches[string(b.ID)] = b
-			if depth, err = checkReserve(bStore, unreserved); err != nil {
+			if radius, err = checkReserve(bStore, unreserved); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -304,3 +304,49 @@ func checkReserve(bStore postage.Storer, unreserved map[string]uint8) (uint8, er
 	}
 	return depth, nil
 }
+
+func TestBatchStore_InnerValue(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(16)
+
+	bStore, unreserved := setupBatchStore(t)
+	//batches := make(map[string]*postage.Batch)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		b := postagetest.MustNewBatch()
+		b.Depth = 2
+		b.Value = big.NewInt(i)
+		b.Start = 667
+		batches = append(batches, b)
+		_ := bStore.Put(b, b.Value, b.Depth)
+	}
+
+	t.Fatal(unreserved)
+	//batchstore.IterateAll(bStore, func(b *postage.Batch) (bool, error) {
+
+	//})
+
+}
+
+/*
+- add a batch, and expect the inner value to be set to that batch's value
+- when we reach the capacity limit, depth 4, expect 32 chunks in the reserve, we add
+  4 batches of 8, values are of 4,3,2,1. ordering should not matter. put it in the same block height
+	sub test:
+	 - what happens when you add a batch of size 2, prices vary - expect cheapest 8 size batch to be unreserved
+	 outer value should be 1+1.
+		- 8+8+8+8, inner: lowest(1), outer: same. batch will value 0 expect nothing to happen
+		  add a batch with value 1, nothing happens
+			size 2, value 2: outer half of batch with value 1 should be evicted, depth increases, unreserve called with new batch
+			size 8 value 1: nothing happens
+			size 4 value 2: delete half the chunks of price 1
+			size 8 value 2: delete all chunks of price 1 and outer half of the
+			size 16 value 3:
+
+
+*/

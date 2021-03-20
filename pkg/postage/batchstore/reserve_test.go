@@ -990,6 +990,144 @@ func TestBatchStore_InnerValue12(t *testing.T) {
 	t.Fatalf("%v", unreserved)
 }
 
+func TestBatchStore_Topup1(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 0; i <= 4; i++ {
+		// values are 2,3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+	t.Logf("1st state: \n%v", unreserved)
+
+	// topup of batch with value 2 to value 3 should result
+	// in the same state as before
+	// inner 3, outer 4
+	val := big.NewInt(int64(3))
+
+	_ = bStore.Put(batches[0], val, depth)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_Topup2(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 0; i <= 4; i++ {
+		// values are 2,3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// topup of batch with value 2 to value 4 should result
+	// in the other batches (3,4) in being downgraded to inner too, so all three batches are
+	// at inner. there's excess capacity
+	// inner 3, outer 5
+	val := big.NewInt(int64(4))
+
+	_ = bStore.Put(batches[0], val, depth)
+	t.Logf("topup:\n%v", unreserved)
+
+	// add another batch at value 2, and since we've over-evicted before,
+	// we should be able to accommodate it
+	b := postagetest.MustNewBatch()
+	val = big.NewInt(int64(2))
+	b.Value = big.NewInt(0)
+	b.Depth = uint8(0)
+	b.Start = 667
+	batches = append(batches, b)
+	_ = bStore.Put(b, val, depth)
+	t.Logf("new batch %x, val %s", b.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_Topup3(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 0; i <= 4; i++ {
+		// values are 2,3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// topup of batch with value 2 to value 4 should result
+	// in the other batches (3,4) in being downgraded to inner too, so all three batches are
+	// at inner. there's excess capacity
+	// inner 3, outer 5
+	val := big.NewInt(int64(10))
+
+	_ = bStore.Put(batches[3], val, depth)
+	t.Logf("topup:\n%v", unreserved)
+
+	// add another batch at value 2, and since we've over-evicted before,
+	// we should be able to accommodate it
+	//b := postagetest.MustNewBatch()
+	//val = big.NewInt(int64(2))
+	//b.Value = big.NewInt(0)
+	//b.Depth = uint8(0)
+	//b.Start = 667
+	//batches = append(batches, b)
+	//_ = bStore.Put(b, val, depth)
+	//t.Logf("new batch %x, val %s", b.ID, val)
+
+	//t.Fatalf("%v", unreserved)
+}
+
 /*
 - add a batch, and expect the inner value to be set to that batch's value
 - when we reach the capacity limit, depth 4, expect 32 chunks in the reserve, we add

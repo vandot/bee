@@ -1116,16 +1116,53 @@ func TestBatchStore_Topup3(t *testing.T) {
 
 	// add another batch at value 2, and since we've over-evicted before,
 	// we should be able to accommodate it
-	//b := postagetest.MustNewBatch()
-	//val = big.NewInt(int64(2))
-	//b.Value = big.NewInt(0)
-	//b.Depth = uint8(0)
-	//b.Start = 667
-	//batches = append(batches, b)
-	//_ = bStore.Put(b, val, depth)
-	//t.Logf("new batch %x, val %s", b.ID, val)
+	b, err := bStore.Get(batches[3].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	//t.Fatalf("%v", unreserved)
+	// TODO: check value in the actual test
+	t.Fatalf("%s", b.Value)
+}
+
+func TestBatchStore_Dilution(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 0; i <= 4; i++ {
+		// values are 2,3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// dilution halves the value
+	t.Logf("%v", unreserved)
+
+	// double the size of the batch
+	// recalculate the per chunk balance. ((value - total) / 2) + total => new batch value
+	// total is 0 at this point
+	t.Fatal(bStore.GetChainState().Total)
+	val := big.NewInt(int64(3))
+	d2 := uint8(9) // if d2 would be 10, then val becomes 1
+	_ = bStore.Put(batches[5], val, d2)
+	t.Fatal(unreserved)
 }
 
 /*

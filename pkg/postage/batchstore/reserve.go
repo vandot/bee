@@ -136,7 +136,6 @@ const (
 // change calculates info relevant to the value change from old to new value and old and new depth
 // returns the change in capacity and the radius of reserve
 func (rs *reserveState) change(oldv, newv *big.Int, oldDepth, newDepth uint8) (int64, uint8) {
-	///	0, 2, 0 ,8
 	oldTier := rs.tier(oldv)
 	newTier := rs.setLimits(newv, rs.tier(newv))
 
@@ -189,7 +188,8 @@ func (rs *reserveState) radius(t tier) uint8 {
 		return swarm.MaxPO
 	case inner:
 		return rs.Radius
-	default: // outer
+	default:
+		// outer
 		return rs.Radius - 1
 	}
 }
@@ -202,7 +202,7 @@ func (rs *reserveState) setLimits(val *big.Int, newTier tier) tier {
 	}
 
 	// if we're here it means that the new tier
-	// is unreserved
+	// falls under the unreserved tier
 	var adjustedTier tier
 
 	// rs.Inner == 0 || rs.Inner > val

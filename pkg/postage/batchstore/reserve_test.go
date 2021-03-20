@@ -305,12 +305,11 @@ func checkReserve(bStore postage.Storer, unreserved map[string]uint8) (uint8, er
 	}
 	return depth, nil
 }
-
-func TestBatchStore_InnerValue(t *testing.T) {
-	// temporarily reset reserve Capacity
+func TestBatchStore_AllBatchesInReserve(t *testing.T) {
 	defer func(i int64) {
 		batchstore.Capacity = i
 	}(batchstore.Capacity)
+
 	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
 
 	bStore, unreserved := setupBatchStore(t)
@@ -355,6 +354,640 @@ func TestBatchStore_InnerValue(t *testing.T) {
 
 	//})
 
+}
+
+func TestBatchStore_InnerValue1(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		t.Logf("batch %s, val %s", hex.EncodeToString(b.ID), val)
+		_ = bStore.Put(b, val, depth)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// add one batch with value 2 and expect that it will be called in
+	// evict with radius 5, which means that the outer half of chunks from
+	// that batch will be deleted once chunks start entering the localstore.
+	// inner 2, outer 4
+
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(2))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, depth)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	// TODO add check for last created batch called in unreserve map
+	// with radius 5, and also the batch created with value 3 before, so the last batch only incurs 4 chunks
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue2(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// add one batch with value 3 and expect that it will be called in
+	// evict with radius 5 alongside with the other value 3 batch
+	// inner 3, outer 4
+
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(3))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, depth)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+
+}
+
+func TestBatchStore_InnerValue3(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// add one batch with value 4 and expect that the batch with value
+	// 3 gets called with radius 5, and BOTH batches with value 4 will
+	// also be called with radius 5.
+	// inner 3, outer 5
+
+	b1 := postagetest.MustNewBatch()
+	t.Logf("lastbatch: %v", hex.EncodeToString(b1.ID))
+	val := big.NewInt(int64(4))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, depth)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+
+}
+
+func TestBatchStore_InnerValue4(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// add one batch with value 4 and expect that the batch with value
+	// 3 gets called with radius 5, and BOTH batches with value 4 will
+	// also be called with radius 5.
+	// inner 3, outer 5
+
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(4))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, depth)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	// since we over-evicted one batch before (since both 4's ended up in
+	// inner, then we can add another one at 4, and expect it also to be
+	// at inner (called with 5)
+	// inner 3, outer 5 (stays the same)
+
+	b2 := postagetest.MustNewBatch()
+	val = big.NewInt(int64(4))
+	b2.Value = big.NewInt(0)
+	b2.Depth = uint8(0)
+	b2.Start = 667
+	batches = append(batches, b2)
+	_ = bStore.Put(b2, val, depth)
+	t.Logf("batch2 %x, val %s", b2.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue5(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// insert a batch of depth 6 (2 chunks fall under our radius)
+	// value is 3, expect unreserve 5, expect other value 3 to be
+	// at radius 5.
+
+	d2 := uint8(6)
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(3))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	b1 = postagetest.MustNewBatch()
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch2 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue6(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// insert a batch of depth 6 (2 chunks fall under our radius)
+	// value is 3, expect unreserve 5, expect other value 3 to be
+	// at radius 5.
+	// inner 3, outer 4
+
+	d2 := uint8(6)
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(4))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue7(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// insert a batch of depth 6 (2 chunks fall under our radius)
+	// value is 3, expect unreserve 5, expect other value 3 to be
+	// at radius 5.
+	// inner 3, outer 4
+
+	d2 := uint8(6)
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(6))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue8(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// insert a batch of depth 9 (16 chunks in outer tier)
+	// expect batches with value 3 and 4 to be unreserved with radius 5
+	// inner 3, outer 5
+
+	d2 := uint8(9) // 16 chunks in premium
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(3))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue9(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// insert a batch of depth 9 (16 chunks in outer tier)
+	// expect batches with value 3 and 4 to be unreserved with radius 5
+	// inner 3, outer 5
+
+	d2 := uint8(9) // 16 chunks in premium
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(4))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue10(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// insert a batch of depth 9 (16 chunks in outer tier)
+	// expect batches with value 3 and 4 to be unreserved with radius 5
+	// inner 3, outer 6
+
+	d2 := uint8(9) // 16 chunks in premium
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(5))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	d2 = uint8(7) // 8 chunks in premium
+	b1 = postagetest.MustNewBatch()
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch2 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue11(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// insert a batch of depth 9 (16 chunks in outer tier)
+	// expect batches with value 3 and 4 to be unreserved with radius 5
+	// inner 3, outer 6
+
+	d2 := uint8(10) // 32 chunks in premium
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(3))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	//d2 = uint8(7) // 8 chunks in premium
+	//b1 = postagetest.MustNewBatch()
+	//b1.Value = big.NewInt(0)
+	//b1.Depth = uint8(0)
+	//b1.Start = 667
+	//batches = append(batches, b1)
+	//_ = bStore.Put(b1, val, d2)
+	//t.Logf("batch2 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
+}
+
+func TestBatchStore_InnerValue12(t *testing.T) {
+	// temporarily reset reserve Capacity
+	defer func(i int64) {
+		batchstore.Capacity = i
+	}(batchstore.Capacity)
+	batchstore.Capacity = batchstore.Exp2(5) // 32 chunks
+
+	bStore, unreserved := setupBatchStore(t)
+
+	// batch depth 8 means 8 chunks falling in a neighborhood
+	// assuming constant bucket depth
+	depth := uint8(8)
+
+	// create the initial state
+	var batches []*postage.Batch
+	for i := 1; i <= 4; i++ {
+		// values are 3,4,5,6
+		b := postagetest.MustNewBatch()
+		val := big.NewInt(int64(i + 2))
+		b.Value = big.NewInt(0)
+		b.Depth = uint8(0)
+		b.Start = 667
+		batches = append(batches, b)
+		_ = bStore.Put(b, val, depth)
+		t.Logf("batch %x, val %s", b.ID, val)
+	}
+
+	// at this stage all inserted batches fall inside the Outer part of the
+	// reserve
+
+	//TODO check all unreserve calls are @ 4
+
+	// insert a batch of depth 9 (16 chunks in outer tier)
+	// expect batches with value 3 and 4 to be unreserved with radius 5
+	// inner 3, outer 6
+
+	d2 := uint8(10) // 32 chunks in premium
+	b1 := postagetest.MustNewBatch()
+	val := big.NewInt(int64(6))
+	b1.Value = big.NewInt(0)
+	b1.Depth = uint8(0)
+	b1.Start = 667
+	batches = append(batches, b1)
+	_ = bStore.Put(b1, val, d2)
+	t.Logf("batch1 %x, val %s", b1.ID, val)
+
+	t.Fatalf("%v", unreserved)
 }
 
 /*

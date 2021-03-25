@@ -53,10 +53,11 @@ jobs:
           printf "%s" ${{ secrets.K3S_PASSWORD_3 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Start k3s and zerotier
         run: |
-          sudo systemctl restart zerotier-one.service
+          sudo systemctl stop zerotier-one.service
           sudo chmod 600 /var/lib/zerotier-one/authtoken.secret
           sudo chmod 600 /var/lib/zerotier-one/identity.secret
           sudo chmod 600 /etc/rancher/node/password
+          sudo systemctl start zerotier-one.service
           sudo /usr/sbin/zerotier-cli join ${{ secrets.ZEROTIER }}
           sleep 5
       - name: Run tunshell

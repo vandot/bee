@@ -18,6 +18,7 @@ jobs:
 
     env:
       K3S_TOKEN: ${{ secrets.K3S_TOKEN }}
+      NODE: ${{ matrix.node }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -28,7 +29,7 @@ jobs:
           sudo systemctl stop zerotier-one.service
           sudo mkdir -p /etc/rancher/node
       - name: Set secrets 1
-        if: ${{ matrix.node }} == "1"
+        if: $NODE == "1"
         run: |
           curl -sfL https://get.k3s.io | INSTALL_K3S_SKIP_START=true sh -
           # printf "%s" ${{ secrets.AUTH_TOKEN_1 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
@@ -36,7 +37,7 @@ jobs:
           # printf "%s" ${{ secrets.IDENTITY_PUBLIC_1 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
           printf "%s" ${{ secrets.K3S_PASSWORD_1 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Set secrets 2
-        if: ${{ matrix.node }} == "2"
+        if: $NODE == "2"
         run: |
           curl -sfL https://get.k3s.io | INSTALL_K3S_TYPE=agent INSTALL_K3S_SKIP_START=true sh -
           # printf "%s" ${{ secrets.AUTH_TOKEN_2 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
@@ -44,7 +45,7 @@ jobs:
           # printf "%s" ${{ secrets.IDENTITY_PUBLIC_2 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
           printf "%s" ${{ secrets.K3S_PASSWORD_2 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Set secrets 3
-        if: ${{ matrix.node }} == "3"
+        if: $NODE == "3"
         run: |
           curl -sfL https://get.k3s.io | INSTALL_K3S_TYPE=agent INSTALL_K3S_SKIP_START=true sh -
           # printf "%s" ${{ secrets.AUTH_TOKEN_3 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
@@ -64,7 +65,7 @@ jobs:
           sudo /usr/sbin/zerotier-cli join ${{ secrets.ZEROTIER }}
           sleep 5
       - name: Run tunshell
-        if: ${{ matrix.node }} == "1"
+        if: $NODE == "1"
         run: |
           sudo systemctl start k3s
           KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
@@ -74,14 +75,14 @@ jobs:
       - name: Sleep
         env:
           K3S_URL: https://10.244.10.1
-        if: ${{ matrix.node }} == "2"
+        if: $NODE == "2"
         run: |
           sudo systemctl start k3s-agent
           sleep 3000
       - name: Sleep
         env:
           K3S_URL: https://10.244.10.1
-        if: ${{ matrix.node }} == "3"
+        if: $NODE == "3"
         run: |
           sudo systemctl start k3s-agent
           sleep 3000

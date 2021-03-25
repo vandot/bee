@@ -31,7 +31,7 @@ jobs:
       - name: Set secrets 1
         if: ${{ matrix.node }} == "1"
         run: |
-          curl -sfL https://get.k3s.io | INSTALL_K3S_TYPE=server INSTALL_K3S_SKIP_START=true sh -
+          curl -sfL https://get.k3s.io | INSTALL_K3S_SKIP_START=true sh -
           # printf "%s" ${{ secrets.AUTH_TOKEN_1 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
           # printf "%s" ${{ secrets.IDENDITY_SECRET_1 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
           # printf "%s" ${{ secrets.IDENTITY_PUBLIC_1 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
@@ -77,12 +77,12 @@ jobs:
           K3S_URL: https://10.244.10.1
         if: ${{ matrix.node }} == "2"
         run: |
-          sudo systemctl start k3s
+          sudo systemctl start k3s-agent
           sleep 3000
       - name: Sleep
         env:
           K3S_URL: https://10.244.10.1
         if: ${{ matrix.node }} == "3"
         run: |
-          sudo systemctl start k3s
+          sudo systemctl start k3s-agent
           sleep 3000

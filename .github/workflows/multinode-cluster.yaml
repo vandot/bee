@@ -40,7 +40,7 @@ jobs:
           sudo chmod 600 /var/lib/zerotier-one/identity.secret
       - name: Set secrets 2
         env:
-          K3S_URL: http://10.244.10.1:6443
+          K3S_URL: https://10.244.10.1:6443
           INSTALL_K3S_SKIP_START: true
         if: env.NODE == '2'
         run: |
@@ -51,7 +51,7 @@ jobs:
           printf "%s" ${{ secrets.K3S_PASSWORD_2 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Set secrets 3
         env:
-          K3S_URL: http://10.244.10.1:6443
+          K3S_URL: https://10.244.10.1:6443
           INSTALL_K3S_SKIP_START: true
         if: env.NODE == '3'
         run: |

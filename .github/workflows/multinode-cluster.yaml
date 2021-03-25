@@ -59,17 +59,25 @@ jobs:
           sudo chmod 600 /etc/rancher/node/password
           sudo /usr/sbin/zerotier-cli join ${{ secrets.ZEROTIER }}
           sleep 5
-          sudo systemctl start k3s.service
       - name: Run tunshell
         if: ${{ matrix.node }} == "1"
         run: |
+          sudo systemctl start k3s.service
           KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
           echo "Connect to github actions node using"
           echo "sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
           curl -sSf https://lets.tunshell.com/init.sh | sh /dev/stdin T $(echo $KEYS | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com
       - name: Sleep
+        env:
+          K3S_URL: https://10.244.10.1
         if: ${{ matrix.node }} == "2"
-        run: sleep 3000
+        run: |
+          sudo systemctl start k3s.service
+          sleep 3000
       - name: Sleep
+        env:
+          K3S_URL: https://10.244.10.1
         if: ${{ matrix.node }} == "3"
-        run: sleep 3000
+        run: |
+          sudo systemctl start k3s.service
+          sleep 3000

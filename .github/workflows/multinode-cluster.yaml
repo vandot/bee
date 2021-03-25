@@ -37,17 +37,23 @@ jobs:
           printf "%s" ${{ secrets.IDENTITY_PUBLIC_1 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
           printf "%s" ${{ secrets.K3S_PASSWORD_1 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Set secrets 2
+        env:
+          K3S_URL: https://10.244.10.1
+          INSTALL_K3S_SKIP_START: true
         if: env.NODE == '2'
         run: |
-          curl -sfL https://get.k3s.io | K3S_URL: https://10.244.10.1 INSTALL_K3S_SKIP_START=true sh -
+          curl -sfL https://get.k3s.io | sh -
           printf "%s" ${{ secrets.AUTH_TOKEN_2 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
           printf "%s" ${{ secrets.IDENDITY_SECRET_2 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
           printf "%s" ${{ secrets.IDENTITY_PUBLIC_2 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
           printf "%s" ${{ secrets.K3S_PASSWORD_2 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Set secrets 3
+        env:
+          K3S_URL: https://10.244.10.1
+          INSTALL_K3S_SKIP_START: true
         if: env.NODE == '3'
         run: |
-          curl -sfL https://get.k3s.io | K3S_URL: https://10.244.10.1 INSTALL_K3S_SKIP_START=true sh -
+          curl -sfL https://get.k3s.io | sh -
           printf "%s" ${{ secrets.AUTH_TOKEN_3 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
           printf "%s" ${{ secrets.IDENDITY_SECRET_3 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
           printf "%s" ${{ secrets.IDENTITY_PUBLIC_3 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
@@ -73,15 +79,11 @@ jobs:
           echo "sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
           curl -sSf https://lets.tunshell.com/init.sh | sh /dev/stdin T $(echo $KEYS | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com
       - name: Sleep
-        env:
-          K3S_URL: https://10.244.10.1
         if: env.NODE == '2'
         run: |
           sudo systemctl start k3s-agent
           sleep 3000
       - name: Sleep
-        env:
-          K3S_URL: https://10.244.10.1
         if: env.NODE == '3'
         run: |
           sudo systemctl start k3s-agent

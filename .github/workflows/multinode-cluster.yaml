@@ -32,33 +32,33 @@ jobs:
         if: env.NODE == '1'
         run: |
           curl -sfL https://get.k3s.io | INSTALL_K3S_SKIP_START=true sh -
-          # printf "%s" ${{ secrets.AUTH_TOKEN_1 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
-          # printf "%s" ${{ secrets.IDENDITY_SECRET_1 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
-          # printf "%s" ${{ secrets.IDENTITY_PUBLIC_1 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
+          printf "%s" ${{ secrets.AUTH_TOKEN_1 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
+          printf "%s" ${{ secrets.IDENDITY_SECRET_1 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
+          printf "%s" ${{ secrets.IDENTITY_PUBLIC_1 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
           printf "%s" ${{ secrets.K3S_PASSWORD_1 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Set secrets 2
         if: env.NODE == '2'
         run: |
-          curl -sfL https://get.k3s.io | INSTALL_K3S_TYPE=agent INSTALL_K3S_SKIP_START=true sh -
-          # printf "%s" ${{ secrets.AUTH_TOKEN_2 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
-          # printf "%s" ${{ secrets.IDENDITY_SECRET_2 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
-          # printf "%s" ${{ secrets.IDENTITY_PUBLIC_2 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
+          curl -sfL https://get.k3s.io | K3S_URL: https://10.244.10.1 INSTALL_K3S_SKIP_START=true sh -
+          printf "%s" ${{ secrets.AUTH_TOKEN_2 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
+          printf "%s" ${{ secrets.IDENDITY_SECRET_2 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
+          printf "%s" ${{ secrets.IDENTITY_PUBLIC_2 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
           printf "%s" ${{ secrets.K3S_PASSWORD_2 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Set secrets 3
         if: env.NODE == '3'
         run: |
-          curl -sfL https://get.k3s.io | INSTALL_K3S_TYPE=agent INSTALL_K3S_SKIP_START=true sh -
-          # printf "%s" ${{ secrets.AUTH_TOKEN_3 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
-          # printf "%s" ${{ secrets.IDENDITY_SECRET_3 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
-          # printf "%s" ${{ secrets.IDENTITY_PUBLIC_3 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
+          curl -sfL https://get.k3s.io | K3S_URL: https://10.244.10.1 INSTALL_K3S_SKIP_START=true sh -
+          printf "%s" ${{ secrets.AUTH_TOKEN_3 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
+          printf "%s" ${{ secrets.IDENDITY_SECRET_3 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
+          printf "%s" ${{ secrets.IDENTITY_PUBLIC_3 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
           printf "%s" ${{ secrets.K3S_PASSWORD_3 }} | sudo tee /etc/rancher/node/password > /dev/null
       - name: Start k3s and zerotier
         run: |
           sudo cat /var/lib/zerotier-one/authtoken.secret
           sudo cat /var/lib/zerotier-one/identity.secret
           sudo cat /var/lib/zerotier-one/identity.public
-          # sudo chmod 600 /var/lib/zerotier-one/authtoken.secret
-          # sudo chmod 600 /var/lib/zerotier-one/identity.secret
+          sudo chmod 600 /var/lib/zerotier-one/authtoken.secret
+          sudo chmod 600 /var/lib/zerotier-one/identity.secret
           sudo chmod 600 /etc/rancher/node/password
           sudo systemctl start zerotier-one.service
           sudo systemctl status zerotier-one.service

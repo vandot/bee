@@ -18,7 +18,6 @@ jobs:
 
     env:
       K3S_TOKEN: ${{ secrets.K3S_TOKEN }}
-      K3S_URL: https://10.244.10.1
     steps:
       - uses: actions/checkout@v2
         with:

@@ -73,7 +73,8 @@ jobs:
       - name: Run tunshell
         if: env.NODE == '1'
         run: |
-          echo "    --node-external-ip="$(ip -4 -c -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s.service
+          head -n -1 /etc/systemd/system/k3s.service | sudo tee /etc/systemd/system/k3s.service
+          echo "    --node-external-ip="$(ip -4 -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s.service
           sudo systemctl daemon-reload
           sudo systemctl start k3s
           KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
@@ -84,7 +85,8 @@ jobs:
       - name: Sleep
         if: env.NODE == '2'
         run: |
-          echo "    --node-external-ip="$(ip -4 -c -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s-agent.service
+          head -n -1 /etc/systemd/system/k3s-agent.service | sudo tee /etc/systemd/system/k3s-agent.service
+          echo "    --node-external-ip="$(ip -4 -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s-agent.service
           sudo systemctl daemon-reload
           sudo systemctl start k3s-agent
           KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
@@ -95,7 +97,8 @@ jobs:
       - name: Sleep
         if: env.NODE == '3'
         run: |
-          echo "    --node-external-ip="$(ip -4 -c -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s-agent.service
+          head -n -1 /etc/systemd/system/k3s-agent.service | sudo tee /etc/systemd/system/k3s-agent.service
+          echo "    --node-external-ip="$(ip -4 -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s-agent.service
           sudo systemctl daemon-reload
           sudo systemctl start k3s-agent
           KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)

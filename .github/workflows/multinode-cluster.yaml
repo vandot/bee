@@ -1,0 +1,108 @@
+name: Cluster
+
+on:
+  push:
+    branches:
+      - 'master'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: [1, 2, 3]
+
+    env:
+      K3S_TOKEN: ${{ secrets.K3S_TOKEN }}
+      NODE: ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Install k3s and zerotier
+        run: |
+          curl -s https://install.zerotier.com | sudo bash
+          sudo systemctl stop zerotier-one.service
+          sudo mkdir -p /etc/rancher/node
+      - name: Set secrets 1
+        if: env.NODE == '1'
+        run: |
+          curl -sfL https://get.k3s.io | INSTALL_K3S_SKIP_START=true sh -
+          printf "%s" ${{ secrets.AUTH_TOKEN_1 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
+          printf "%s" ${{ secrets.IDENDITY_SECRET_1 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
+          printf "%s" ${{ secrets.IDENTITY_PUBLIC_1 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
+          printf "%s" ${{ secrets.K3S_PASSWORD_1 }} | sudo tee /etc/rancher/node/password > /dev/null
+          sudo chmod 600 /var/lib/zerotier-one/authtoken.secret
+          sudo chmod 600 /var/lib/zerotier-one/identity.secret
+      - name: Set secrets 2
+        env:
+          K3S_URL: https://10.244.10.1:6443
+          INSTALL_K3S_SKIP_START: true
+        if: env.NODE == '2'
+        run: |
+          curl -sfL https://get.k3s.io | sh -
+          # printf "%s" ${{ secrets.AUTH_TOKEN_2 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
+          # printf "%s" ${{ secrets.IDENDITY_SECRET_2 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
+          # printf "%s" ${{ secrets.IDENTITY_PUBLIC_2 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
+          printf "%s" ${{ secrets.K3S_PASSWORD_2 }} | sudo tee /etc/rancher/node/password > /dev/null
+      - name: Set secrets 3
+        env:
+          K3S_URL: https://10.244.10.1:6443
+          INSTALL_K3S_SKIP_START: true
+        if: env.NODE == '3'
+        run: |
+          curl -sfL https://get.k3s.io | sh -
+          # printf "%s" ${{ secrets.AUTH_TOKEN_3 }} | sudo tee /var/lib/zerotier-one/authtoken.secret > /dev/null
+          # printf "%s" ${{ secrets.IDENDITY_SECRET_3 }} | sudo tee /var/lib/zerotier-one/identity.secret > /dev/null
+          # printf "%s" ${{ secrets.IDENTITY_PUBLIC_3 }} | sudo tee /var/lib/zerotier-one/identity.public > /dev/null
+          printf "%s" ${{ secrets.K3S_PASSWORD_3 }} | sudo tee /etc/rancher/node/password > /dev/null
+      - name: Start k3s and zerotier
+        run: |
+          # sudo cat /var/lib/zerotier-one/authtoken.secret
+          # sudo cat /var/lib/zerotier-one/identity.secret
+          # sudo cat /var/lib/zerotier-one/identity.public
+          sudo chmod 600 /etc/rancher/node/password
+          sudo systemctl start zerotier-one.service
+          sudo systemctl status zerotier-one.service
+          sudo /usr/sbin/zerotier-cli join ${{ secrets.ZEROTIER }}
+          sleep 10
+      - name: Run tunshell
+        if: env.NODE == '1'
+        run: |
+          head -n -1 /etc/systemd/system/k3s.service | sudo tee /etc/systemd/system/k3s.service
+          echo "    --node-external-ip="$(ip -4 -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s.service
+          sudo systemctl daemon-reload
+          sudo systemctl start k3s
+          KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
+          curl -sSf -X POST -H "Content-Type: application/json" -d "{\"text\": \"**TEST1**\nDebug -> \`sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com\`\"}" https://beehive.ethswarm.org/hooks/${{ secrets.WEBHOOK_KEY }}
+          echo "Connect to github actions node using"
+          echo "sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
+          curl -sSf https://lets.tunshell.com/init.sh | sh /dev/stdin T $(echo $KEYS | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com
+      - name: Sleep
+        if: env.NODE == '2'
+        run: |
+          head -n -1 /etc/systemd/system/k3s-agent.service | sudo tee /etc/systemd/system/k3s-agent.service
+          echo "    --node-external-ip="$(ip -4 -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s-agent.service
+          sudo systemctl daemon-reload
+          sudo systemctl start k3s-agent
+          KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
+          curl -sSf -X POST -H "Content-Type: application/json" -d "{\"text\": \"**TEST2**\nDebug -> \`sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com\`\"}" https://beehive.ethswarm.org/hooks/${{ secrets.WEBHOOK_KEY }}
+          echo "Connect to github actions node using"
+          echo "sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
+          curl -sSf https://lets.tunshell.com/init.sh | sh /dev/stdin T $(echo $KEYS | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com
+      - name: Sleep
+        if: env.NODE == '3'
+        run: |
+          head -n -1 /etc/systemd/system/k3s-agent.service | sudo tee /etc/systemd/system/k3s-agent.service
+          echo "    --node-external-ip="$(ip -4 -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" \\" | sudo tee -a /etc/systemd/system/k3s-agent.service
+          sudo systemctl daemon-reload
+          sudo systemctl start k3s-agent
+          KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
+          curl -sSf -X POST -H "Content-Type: application/json" -d "{\"text\": \"**TEST3**\nDebug -> \`sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com\`\"}" https://beehive.ethswarm.org/hooks/${{ secrets.WEBHOOK_KEY }}
+          echo "Connect to github actions node using"
+          echo "sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
+          curl -sSf https://lets.tunshell.com/init.sh | sh /dev/stdin T $(echo $KEYS | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com

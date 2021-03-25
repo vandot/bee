@@ -73,6 +73,8 @@ jobs:
       - name: Run tunshell
         if: env.NODE == '1'
         run: |
+          echo "--node-external-ip="$(ip -4 -c -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" /" | sudo tee -a /etc/systemd/system/k3s.service
+          sudo systemctl daemon-reload
           sudo systemctl start k3s
           KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
           curl -sSf -X POST -H "Content-Type: application/json" -d "{\"text\": \"**TEST1**\nDebug -> \`sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com\`\"}" https://beehive.ethswarm.org/hooks/${{ secrets.WEBHOOK_KEY }}
@@ -82,6 +84,8 @@ jobs:
       - name: Sleep
         if: env.NODE == '2'
         run: |
+          echo "--node-external-ip="$(ip -4 -c -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" /" | sudo tee -a /etc/systemd/system/k3s-agent.service
+          sudo systemctl daemon-reload
           sudo systemctl start k3s-agent
           KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
           curl -sSf -X POST -H "Content-Type: application/json" -d "{\"text\": \"**TEST2**\nDebug -> \`sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com\`\"}" https://beehive.ethswarm.org/hooks/${{ secrets.WEBHOOK_KEY }}
@@ -91,6 +95,8 @@ jobs:
       - name: Sleep
         if: env.NODE == '3'
         run: |
+          echo "--node-external-ip="$(ip -4 -c -o address show | grep zt | cut -d' ' -f7 | cut -d'/' -f1)" /" | sudo tee -a /etc/systemd/system/k3s-agent.service
+          sudo systemctl daemon-reload
           sudo systemctl start k3s-agent
           KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
           curl -sSf -X POST -H "Content-Type: application/json" -d "{\"text\": \"**TEST3**\nDebug -> \`sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo $KEYS | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com\`\"}" https://beehive.ethswarm.org/hooks/${{ secrets.WEBHOOK_KEY }}

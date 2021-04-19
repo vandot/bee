@@ -42,3 +42,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
           SCOOP: ${{ secrets.SCOOP }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
